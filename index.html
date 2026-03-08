@@ -316,8 +316,9 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'markdown_content';
+        const STORAGE_KEY = 'markdown_content_v1';
         let isEditing = false;
+        let autoSaveTimer = null;
 
         const fileInput = document.getElementById('fileInput');
         const editBtn = document.getElementById('editBtn');
@@ -351,11 +352,23 @@
             markdownContent.innerHTML = marked.parse(text);
         }
 
-        function showNotification() {
+        function showNotification(message = '✓ 内容已保存！') {
+            saveNotification.textContent = message;
             saveNotification.classList.add('show');
             setTimeout(() => {
                 saveNotification.classList.remove('show');
             }, 2000);
+        }
+
+        function saveContent(content) {
+            localStorage.setItem(STORAGE_KEY, content);
+        }
+
+        function autoSave() {
+            if (isEditing) {
+                const content = markdownEditor.value;
+                saveContent(content);
+            }
         }
 
         function enterEditMode() {
@@ -365,13 +378,18 @@
             editorContainer.classList.add('active');
             editBtn.style.display = 'none';
             saveBtn.style.display = 'inline-block';
+            autoSaveTimer = setInterval(autoSave, 3000);
         }
 
         function exitEditMode(save = false) {
             isEditing = false;
+            if (autoSaveTimer) {
+                clearInterval(autoSaveTimer);
+                autoSaveTimer = null;
+            }
             if (save) {
                 const content = markdownEditor.value;
-                localStorage.setItem(STORAGE_KEY, content);
+                saveContent(content);
                 renderMarkdown(content);
                 showNotification();
             }
@@ -388,7 +406,7 @@
             reader.onload = (event) => {
                 const content = event.target.result;
                 markdownEditor.value = content;
-                localStorage.setItem(STORAGE_KEY, content);
+                saveContent(content);
                 renderMarkdown(content);
                 showNotification();
             };
@@ -401,6 +419,14 @@
         saveBtn.addEventListener('click', () => exitEditMode(true));
 
         cancelBtn.addEventListener('click', () => exitEditMode(false));
+
+        window.addEventListener('beforeunload', (e) => {
+            if (isEditing) {
+                const content = markdownEditor.value;
+                saveContent(content);
+                renderMarkdown(content);
+            }
+        });
 
         init();
     </script>
